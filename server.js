@@ -4,40 +4,41 @@ const path = require('path');
 const app = express();
 
 app.use(express.json());
-// 设置当前目录为静态资源目录，这样直接放根目录的 index.html 就能被访问
-app.use(express.static(__dirname)); 
+app.use(express.static(__dirname)); // 允许访问根目录下的 index.html
 
-// 加载 Excel 数据库
+// 数据库加载
 const DB_FILE = 'CE中柬空运货物分类_Agent训练版.xlsx';
 let logisticsData = [];
 
 function loadData() {
     try {
         const workbook = xlsx.readFile(DB_FILE);
-        logisticsData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-        console.log("✅ 物流数据库加载成功，共 " + logisticsData.length + " 条数据");
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        logisticsData = xlsx.utils.sheet_to_json(sheet);
+        console.log(`✅ 成功加载 ${logisticsData.length} 条物流数据`);
     } catch (e) {
-        console.error("❌ 数据库加载失败:", e.message);
+        console.error("❌ 数据库加载失败，请检查文件名:", e.message);
     }
 }
 loadData();
 
-// 接口 1：YouTube 风格的搜索建议
+// 接口：自动补全建议 (YouTube 风格)
 app.get('/api/suggest', (req, res) => {
-    const keyword = req.query.keyword || '';
+    const keyword = (req.query.keyword || '').trim();
     if (!keyword) return res.json([]);
 
-    // 筛选匹配的前 8 个名称，反应最快
-    const list = logisticsData
+    const suggestions = logisticsData
         .filter(item => String(item.货物名称).includes(keyword))
         .map(item => item.货物名称)
-        .slice(0, 8);
-    res.json(list);
+        .slice(0, 8); // 返回前8个最相关的词
+
+    res.json(suggestions);
 });
 
-// 接口 2：点击后的详细查询
+// 接口：执行查询
 app.post('/api/search', (req, res) => {
     const { itemName } = req.body;
+    // 优先匹配完全一致的名称
     const found = logisticsData.find(item => String(item.货物名称) === itemName);
 
     if (found) {
@@ -48,15 +49,15 @@ app.post('/api/search', (req, res) => {
                 type: found.货物属性,
                 price: found.运费参考,
                 status: found.运输状态,
-                note: found.备注 || "无"
+                note: found.备注 || "暂无特别备注"
             }
         });
     } else {
-        res.json({ success: false, message: "未找到精确匹配结果" });
+        res.json({ success: false, message: "❌ 数据库中未找到该品名" });
     }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 服务运行在端口: ${PORT}`);
+    console.log(`🚀 CE Logistics Agent 正在端口 ${PORT} 上运行`);
 });
