@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CE 中柬空运价格自查系统</title>
+    <style>
+        :root {
+            --primary-color: #28a745;
+            --danger-color: #dc3545;
+            --bg-color: #f4f7f6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            width: 100%;
+            max-width: 500px;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            color: var(--primary-color);
+            font-size: 22px;
+            margin: 10px 0;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            font-size: 16px;
+        }
+        input:focus {
+            border-color: var(--primary-color);
+        }
+        button {
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #result {
+            display: none;
+            padding: 15px;
+            border-radius: 10px;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease;
+        }
+        .result-item {
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 5px;
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+            margin-right: 10px;
+        }
+        .value {
+            color: #333;
+            font-weight: 500;
+        }
+        .prohibited {
+            background-color: #fff1f0;
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+        .allowed {
+            background-color: #f6ffed;
+            border: 1px solid var(--primary-color);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div style="font-size: 40px;">🚚</div>
+        <h1>CE 中柬空运价格自查</h1>
+        <p style="color: #888; font-size: 14px;">快速查询货物分类及运费标准</p>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="itemName" placeholder="输入物品名称，如：辣条" onkeypress="if(event.keyCode==13) doSearch()">
+        <button onclick="doSearch()">查询</button>
+    </div>
+
+    <div id="result"></div>
+
+    <div style="margin-top: 30px; font-size: 12px; color: #bbb; text-align: center;">
+        Powered by CE Logistics System | 云端版
+    </div>
+</div>
+
+<script>
+    async function doSearch() {
+        const input = document.getElementById('itemName');
+        const resultDiv = document.getElementById('result');
+        const itemName = input.value.trim();
+
+        if (!itemName) return;
+
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '⏳ 正在查询...';
+        resultDiv.className = '';
+
+        try {
+            const response = await fetch('/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itemName })
+            });
+            const res = await response.json();
+
+            if (res.success) {
+                const data = res.data;
+                const isProhibited = data.status === '禁止运输';
+                
+                resultDiv.className = isProhibited ? 'prohibited' : 'allowed';
+                resultDiv.innerHTML = `
+                    <div class="result-item"><span class="label">物品名称:</span><span class="value">${data.name}</span></div>
+                    <div class="result-item"><span class="label">货物属性:</span><span class="value">${data.type}</span></div>
+                    <div class="result-item"><span class="label">运费参考:</span><span class="value">${data.price}</span></div>
+                    <div class="result-item"><span class="label">运输状态:</span><span class="value">${isProhibited ? '❌ ' + data.status : '✅ ' + data.status}</span></div>
+                    <div style="margin-top:10px; font-size:13px;"><strong>备注:</strong> ${data.note}</div>
+                `;
+
+                // 语音播报：如果是禁运品则发出警告声（可选）
+                if (isProhibited) {
+                    const msg = new SpeechSynthesisUtterance("警告，该物品禁止运输");
+                    window.speechSynthesis.speak(msg);
+                }
+            } else {
+                resultDiv.className = '';
+                resultDiv.style.backgroundColor = '#f0f0f0';
+                resultDiv.innerHTML = `<div style="text-align:center; color:#666;">${res.message}</div>`;
+            }
+        } catch (error) {
+            resultDiv.innerHTML = '❌ 网络连接失败，请稍后再试';
+        }
+    }
+</script>
+
+</body>
+</html>
