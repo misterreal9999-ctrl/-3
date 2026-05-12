@@ -5,7 +5,7 @@ const app = express();
 
 // 1. 基础配置
 app.use(express.json());
-app.use(express.static('public')); // 存放前端 HTML 文件的文件夹
+app.use(express.static(__dirname));/ // 存放前端 HTML 文件的文件夹
 
 // 2. 加载物流数据库 (Excel)
 // 确保该文件已上传到 GitHub，并与 server.js 在同一目录
